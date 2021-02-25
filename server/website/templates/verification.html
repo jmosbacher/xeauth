@@ -1,0 +1,9 @@
+{% extends "bootstrap/wtf.html" %}
+
+{% block content %}
+ <h3>Enter your activation code</h3>
+<form class="form form-horizontal" method="post" role="form">
+  {{ form.hidden_tag()}}
+  {{ wtf.quick_form(form) }}
+</form>
+{% endblock %}
