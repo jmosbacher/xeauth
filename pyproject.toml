@@ -28,6 +28,7 @@ click = "*"
 Authlib = "^0.15.3"
 panel = "^0.10.3"
 httpx = "^0.16.1"
+appdirs = "^1.4.4"
 
 [tool.poetry.dev-dependencies]
 bumpversion = "*"

@@ -2,13 +2,13 @@ import param
 import panel as pn
 import httpx
 import authlib
-from authlib import jose
 import time
 import json
 import webbrowser
 from contextlib import contextmanager, asynccontextmanager
 import logging
 from datetime import datetime
+import os
 
 from .utils import url_link_button
 from .settings import config
@@ -44,12 +44,12 @@ class XeToken(param.Parameterized):
             data = json.load(f)
         return cls(**data)
 
-    def to_dict(self):
-        return {k:v for k,v in self.param.get_param_values() if not k.startswith("_")}
-        
     def to_file(self, path):
         with open(path, "w") as f:
             json.dump(self.to_dict(), f)
+
+    def to_dict(self):
+        return {k:v for k,v in self.param.get_param_values() if not k.startswith("_")}
 
     def refresh_tokens(self, oauth_domain, oauth_token_path, client_id, headers={}):
         with httpx.Client(base_url=oauth_domain, headers=headers) as client:
@@ -137,7 +137,9 @@ class XeAuthSession(param.Parameterized):
     oauth_domain = param.String(config.OAUTH_DOMAIN)
     oauth_code_path = param.String(config.OAUTH_CODE_PATH)
     oauth_token_path = param.String(config.OAUTH_TOKEN_PATH)
-
+    
+    auto_persist_session = param.Boolean(False)
+    token_file = param.String(config.TOKEN_FILE)
     client_id = param.String(config.DEFAULT_CLIENT_ID) 
     scopes = param.List([])
     audience = param.String(config.DEFAULT_AUDIENCE)
@@ -149,17 +151,34 @@ class XeAuthSession(param.Parameterized):
                             "Checking token ready", "Token expired"],
                              default="Disconnected")
 
+    def __init__(self, **params):
+        super().__init__(**params)
+        if os.path.isfile(self.token_file):
+            self.token = XeToken.from_file(self.token_file)
+            if self.logged_in:
+                self.state = "Logged in"
+
     @property
     def scope(self):
         scopes = set(config.DEFAULT_SCOPE.split(" ") + self.scopes)
         return " ".join(scopes)
 
     def login(self, open_browser=False, print_url=False, extra_headers={}):
-        self.token = self.flow.perform(self.oauth_domain, self.oauth_code_path, self.oauth_token_path, 
-                                        self.client_id, self.scope, self.audience, headers=extra_headers,
-                                      open_browser=open_browser, print_url=print_url)
         if self.token:
             self.state = "Logged in"
+        else:
+            self.token = self.flow.perform(self.oauth_domain, self.oauth_code_path, self.oauth_token_path, 
+                                            self.client_id, self.scope, self.audience, headers=extra_headers,
+                                        open_browser=open_browser, print_url=print_url)
+            if self.token:
+                self.state = "Logged in"
+
+    def persist_token(self):
+        if self.token_file:
+            try:
+                self.token.to_file(self.token_file)
+            except Exception as e:
+                logger.error("Exception raised while persisted token: "+str(e))
 
     def logout(self):
         self.token = None
@@ -177,6 +196,9 @@ class XeAuthSession(param.Parameterized):
             try:
                 self.token = self.flow.fetch_token(self.oauth_domain,
                                          self.oauth_token_path, headers=extra_headers)
+                if self.auto_persist_session:
+                    self.persist_token()
+                    
                 self.state = "Logged in"
                 return True
             except:
@@ -291,7 +313,7 @@ class NotebookSession(XeAuthSession):
             
             width=700,
         )
-        logout = pn.widgets.Button(name="Logout")
+        logout = pn.widgets.Button(name="Logout", button_type='warning')
         logout.on_click(lambda event: self.logout())
         return pn.Column(
                     details,
@@ -302,9 +324,15 @@ class NotebookSession(XeAuthSession):
                     width=700)
 
     def awaiting_token_gui(self):
-        logout = pn.widgets.Button(name="Cancel", width=50)
-        logout.on_click(lambda event: self.logout())
-        return pn.Row(url_link_button(self.flow.verification_uri_complete), logout)
+        cancel = pn.widgets.Button(name="Cancel", width=50)
+        cancel.on_click(lambda event: self.logout())
+        authenticate = url_link_button(self.flow.verification_uri_complete, button_type='primary', width=100)
+        
+        waiting_ind = pn.indicators.LoadingSpinner(value=False, width=30, height=30, align="center")
+        def activate(event):
+            waiting_ind.value = True
+        authenticate.on_click(activate)
+        return pn.Row(waiting_ind, authenticate, cancel)
     
     def token_expired_gui(self):
         refresh = pn.widgets.Button(name="Renew", align="end")
@@ -329,9 +357,9 @@ class NotebookSession(XeAuthSession):
             return pn.panel(self.token_expired_gui())
 
         else:
-            login = pn.widgets.Button(name="Login", button_type='primary', width=30)
+            login = pn.widgets.Button(name="Login", button_type='success', width=30)
             login.on_click(self.login_requested)
-            panel.append(pn.Param(self.param.scopes))
+            panel.append(pn.Param(self.param, parameters=["scopes", "auto_persist_session"]))
             panel.append(login)
 
         return panel
