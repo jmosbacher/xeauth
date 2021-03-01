@@ -65,7 +65,7 @@ class XeToken(param.Parameterized):
             r.raise_for_status()
             params = r.json()
             params["expires"] = time.time() + params.pop("expires_in", 1e6)
-            self.set_param(**params)    
+            self.param.set_param(**params)    
         
 class XeAuthFlow(param.Parameterized):
     client_id = param.String()
@@ -206,8 +206,10 @@ class XeAuthSession(param.Parameterized):
         return False
     
     def refresh_tokens(self, extra_headers={}):
-        self.token = self.token.refresh_tokens(self.oauth_domain, self.oauth_token_path, self.client_id,
-                                             self.token.refresh_token, headers=extra_headers)
+        self.token.refresh_tokens(self.oauth_domain, self.oauth_token_path,
+                                             self.client_id, headers=extra_headers)
+        if self.auto_persist_session:
+            self.persist_token()
 
     @property
     def logged_in(self):
@@ -341,7 +343,7 @@ class NotebookSession(XeAuthSession):
 
     @param.depends("state")
     def _make_gui(self):
-        status = pn.indicators.BooleanStatus(width=15, height=15, value=True, color="danger")
+        status = pn.indicators.BooleanStatus(width=20, height=20, value=True, color="danger", align="center")
         header = pn.Row(status, f"Status: {self.state}.")
         panel = pn.Column(header)
         if self.state == "Logged in":

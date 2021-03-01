@@ -8,8 +8,8 @@ try:
 except ImportError:
     pass
 
-class XenonEveAuth(EveAuthBase):
-    session = param.ClassSelector(NotebookSession, default=NotebookSession())
+class XenonEveAuth(NotebookSession, EveAuthBase):
+    # session = param.ClassSelector(NotebookSession, default=NotebookSession())
 
     def get_headers(self):
         """Generate auth headers for HTTP requests.
@@ -18,7 +18,7 @@ class XenonEveAuth(EveAuthBase):
             dict: Auth related headers to be included in all requests.
         """
         if self.logged_in:
-            return {"Authorization": f"Bearer {self.session.access_token}"}
+            return {"Authorization": f"Bearer {self.access_token}"}
         else:
             return {}
 
@@ -28,25 +28,17 @@ class XenonEveAuth(EveAuthBase):
         Returns:
             bool: whether login was successful
         """
-        self.session.login_requested(None)
+        self.login_requested(None)
 
-    def logout(self):
-        """perform any actions required to logout.
-
-        Returns:
-            bool: whether login was successful
-        """
-        return self.session.logout()
-
-    @property
-    def logged_in(self):
-        return self.session.logged_in
 
     def set_credentials(self, **credentials):
         """Set the access credentials manually.
         """
         for k,v in credentials.items():
-            setattr(self.session, k, v)
-    
+            if k in ['access_token', "id_token", "refresh_token", "expires"]:
+                setattr(self.token, k, v)
+            else:
+                setattr(self, k, v)
+                
     def credentials_view(self):
-        return self.session.gui
+        return self.gui
