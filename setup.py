@@ -24,7 +24,7 @@ if os.path.exists(readme_path):
 setup(
     long_description=readme,
     name='xeauth',
-    version='0.1.2',
+    version='0.1.3',
     description='Top-level package for xeauth.',
     python_requires='>=3.7',
     project_urls={"homepage": "https://github.com/jmosbacher/xeauth"},
