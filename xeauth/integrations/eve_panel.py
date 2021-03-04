@@ -22,7 +22,7 @@ class XenonEveAuth(NotebookSession, EveAuthBase):
         else:
             return {}
 
-    def login(self):
+    def login(self, notify_email=None):
         """perform any actions required to aquire credentials.
 
         Returns:

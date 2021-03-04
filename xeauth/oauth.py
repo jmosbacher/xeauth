@@ -76,15 +76,19 @@ class XeAuthFlow(param.Parameterized):
     interval = param.Number(5)
     verification_uri_complete = param.String()
 
-    def request_token(self, oauth_domain, oauth_code_path, client_id, scope, audience, headers={}):
-        with httpx.Client(base_url=oauth_domain, headers=headers) as client:
-            r = client.post(
-                oauth_code_path,
-                data={
+    def request_token(self, oauth_domain, oauth_code_path, client_id, 
+                        scope, audience, extra_fields={}, headers={}):
+        data = {
                     "client_id": client_id,
                     "scope": scope,
                     "audience": audience,
-                    },
+                    }
+        data.update(extra_fields)
+        with httpx.Client(base_url=oauth_domain, headers=headers) as client:
+    
+            r = client.post(
+                oauth_code_path,
+                data=data,
                 headers={"content-type": "application/x-www-form-urlencoded"})
             r.raise_for_status()
         self.client_id = client_id
@@ -124,8 +128,9 @@ class XeAuthFlow(param.Parameterized):
 
 
     def perform(self, oauth_domain, oauth_code_path, oauth_token_path,
-                 client_id, scope, audience, headers={}, open_browser=False, print_url=False):
-        self.request_token(oauth_domain, oauth_code_path, client_id, scope, audience, headers=headers)
+                 client_id, scope, audience, headers={}, extra_fields={}, open_browser=False, print_url=False):
+        self.request_token(oauth_domain, oauth_code_path, client_id, scope, 
+                    audience, extra_fields=extra_fields, headers=headers)
         if print_url:
             print(f"Authorization URL: {self.verification_uri_complete}")
         if open_browser:
@@ -143,6 +148,8 @@ class XeAuthSession(param.Parameterized):
     client_id = param.String(config.DEFAULT_CLIENT_ID) 
     scopes = param.List([])
     audience = param.String(config.DEFAULT_AUDIENCE)
+
+    notify_email = param.String()
 
     flow = param.ClassSelector(XeAuthFlow, default=XeAuthFlow())
     keyset = param.ClassSelector(XeKeySet, default=certs)
@@ -163,12 +170,16 @@ class XeAuthSession(param.Parameterized):
         scopes = set(config.DEFAULT_SCOPE.split(" ") + self.scopes)
         return " ".join(scopes)
 
-    def login(self, open_browser=False, print_url=False, extra_headers={}):
+    def login(self, open_browser=False, print_url=False, extra_headers={}, notify_email=None):
+        extra_fields = {}
+        if notify_email:
+            extra_fields["notify_email"] = notify_email
         if self.token:
             self.state = "Logged in"
         else:
             self.token = self.flow.perform(self.oauth_domain, self.oauth_code_path, self.oauth_token_path, 
                                             self.client_id, self.scope, self.audience, headers=extra_headers,
+                                            extra_fields=extra_fields,
                                         open_browser=open_browser, print_url=print_url)
             if self.token:
                 self.state = "Logged in"
