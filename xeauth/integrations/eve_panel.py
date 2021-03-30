@@ -29,6 +29,7 @@ class XenonEveAuth(NotebookSession, EveAuthBase):
             bool: whether login was successful
         """
         self.login_requested(None)
+        self.authorize()
 
 
     def set_credentials(self, **credentials):
