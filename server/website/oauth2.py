@@ -31,7 +31,7 @@ from .models import OAuth2Client, OAuth2AuthorizationCode,\
 DUMMY_JWT_CONFIG = {
     'key': 'secret-key',
     'alg': 'HS256',
-    'iss': 'https://pmts.xenonnt.net.org',
+    'iss': 'https://pmts.xenonnt.org',
     'exp': 3600,
 }
 

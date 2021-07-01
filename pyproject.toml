@@ -21,7 +21,7 @@ packages = [
     { include = "xeauth" },
     { include = "tests", format = "sdist" },
 ]
-
+    
 [tool.poetry.dependencies]
 python = ">=3.7.1"
 click = "*"
